@@ -8,16 +8,17 @@ from string import punctuation
 import spacy
 
 original_text = open("text.txt").read() 
-npl = spacy.load("ru_core_news_lg")
+npl = spacy.load("ru_core_news_lg", disable=['parser', 'ner'])
 spacy.lang.ru.stop_words.STOP_WORDS |= {" ", "  ", "   "}
 spacy_stopwords = spacy.lang.ru.stop_words.STOP_WORDS
+
 def spacy_tokenize(text):
     doc = npl.tokenizer(text)
     return [token.text for token in doc]
 
 def spacy_lemmatize(text):
-    doc = npl.tokenizer(text)
-    return [token.lemma for token in doc]
+    doc = npl(text)
+    return " ".join([token.lemma_ for token in doc if token.is_punct == False and token.is_stop == False]).split()
 
 def remove_stopwords(tokens):
     cleaned_tokens = []
@@ -28,12 +29,12 @@ def remove_stopwords(tokens):
 
 def clean_text(text):
     text = text.lower()
-    text = re.sub(r'[^а-яА-я $]', '', str(text))
+    text = re.sub(r'[^а-яА-Я $]', '', str(text))
     return text
 
 def tokenize(text):
     text = text.lower()
-    text = re.sub(r'[^а-яА-я $]', '', str(text))
+    text = re.sub(r'[^а-яА-Я $]', '', str(text))
     return text.split()
 
 def word_count(tokens):
@@ -74,14 +75,15 @@ def count(docs):
 #pandas_table_top20 = pandas_table[pandas_table['rank']<= 20]
 
 text = clean_text(original_text)
-spacy_lemmas = spacy_lemmatize(original_text)
+spacy_lemmas = spacy_lemmatize(text)
 spacy_tokens = spacy_tokenize(text)
 cleaned_tokens = remove_stopwords(spacy_tokens)
+cleaned_lemmas = remove_stopwords(spacy_lemmas)
 
-words = word_count(cleaned_tokens)
-pandas_table = count([cleaned_tokens])
+words = word_count(cleaned_lemmas)
+pandas_table = count([cleaned_lemmas])
 pandas_table_top20 = pandas_table[pandas_table['rank']<= 20]
-print(words)
+print(words.most_common(50))
    
 #squarify.plot(sizes=pandas_table_top20['pct_total'], label=pandas_table_top20['word'], alpha=.8 )
 #pyplot.axis('off')
