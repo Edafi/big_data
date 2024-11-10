@@ -6,21 +6,40 @@ import seaborn as graph
 import squarify
 from string import punctuation
 import spacy
+import nltk
+nltk.download('punkt')
+nltk.download('punkt_tab')
+
 
 original_text = open("text.txt").read() 
-npl = spacy.load("ru_core_news_lg", disable=['parser', 'ner'])
-spacy.lang.ru.stop_words.STOP_WORDS |= {" ", "  ", "   "}
+nlp = spacy.load("ru_core_news_lg", disable=['parser', 'ner'])
+spacy.lang.ru.stop_words.STOP_WORDS |= {" ", "  ", "   ", "    ","     ", "      ","       ", "        " ,
+"         ", "          ", "                   ", "ни", "ст", "прим", "см"}
 spacy_stopwords = spacy.lang.ru.stop_words.STOP_WORDS
+nlp.max_length = 2000000
 
-def spacy_tokenize(text):
-    doc = npl.tokenizer(text)
+def get_average_sentence_length(text):
+    senteces = nltk.sent_tokenize(text, language = "russian")
+    words_in_sentences = [len(tokenize(sentence)) for sentence in senteces]
+    average_sentence_length = sum(words_in_sentences)/len(senteces)
+    return average_sentence_length
+
+def spacy_tokenize_simple(doc):
     return [token.text for token in doc]
 
-def spacy_lemmatize(text):
-    doc = npl(text)
+def spacy_tokenize_complex(doc, spacy_stopwords):
+    keywords = []
+    for token in doc:
+        if(token.text in spacy_stopwords):
+            continue
+        else:
+            keywords.append(token.text)
+    return keywords
+
+def spacy_lemmatize(doc):
     return " ".join([token.lemma_ for token in doc if token.is_punct == False and token.is_stop == False]).split()
 
-def remove_stopwords(tokens):
+def remove_stopwords(tokens, spacy_stopwords):
     cleaned_tokens = []
     for token in tokens:
         if token not in spacy_stopwords:
@@ -33,8 +52,6 @@ def clean_text(text):
     return text
 
 def tokenize(text):
-    text = text.lower()
-    text = re.sub(r'[^а-яА-Я $]', '', str(text))
     return text.split()
 
 def word_count(tokens):
@@ -68,24 +85,31 @@ def count(docs):
     wc['appears_in_pct'] = wc['appears_in'].apply(lambda x: x / total_docs)
     return wc.sort_values(by='rank')
 
-
-#tokens = tokenize(original_text)
-#words = word_count(tokens)
-#pandas_table = count([tokens])
-#pandas_table_top20 = pandas_table[pandas_table['rank']<= 20]
-
 text = clean_text(original_text)
-spacy_lemmas = spacy_lemmatize(text)
-spacy_tokens = spacy_tokenize(text)
-cleaned_tokens = remove_stopwords(spacy_tokens)
-cleaned_lemmas = remove_stopwords(spacy_lemmas)
-
+doc = nlp(text)
+spacy_tokens_before = spacy_tokenize_simple(doc)
+print("Tokens with stop words: ", len(spacy_tokens_before))
+print("Types: ", len(set(spacy_tokens_before)))
+spacy_tokens_before = Counter([token.pos_ for token in doc])
+print(spacy_tokens_before)
+spacy_lemmas = spacy_lemmatize(doc)
+print("Lemmas:", len(set(spacy_lemmas)))
+print("Average sentence length: ", get_average_sentence_length(original_text))
+spacy_tokens_after = spacy_tokenize_complex(doc, spacy_stopwords)
+print("Tokens without stop words: ", len(spacy_tokens_after))
+spacy_tokens_after = remove_stopwords(spacy_tokens_after, spacy_stopwords)
+spacy_tokens_after = Counter([token.pos_ for token in doc if token.text not in spacy_stopwords])
+cleaned_lemmas = remove_stopwords(spacy_lemmas, spacy_stopwords)
 words = word_count(cleaned_lemmas)
 pandas_table = count([cleaned_lemmas])
 pandas_table_top20 = pandas_table[pandas_table['rank']<= 20]
-print(words.most_common(50))
-   
-#squarify.plot(sizes=pandas_table_top20['pct_total'], label=pandas_table_top20['word'], alpha=.8 )
+
 #pyplot.axis('off')
-graph.lineplot(x = 'rank', y = 'cul_pct_total', data = pandas_table)
+figure, axis = pyplot.subplots(2, 2)
+#squarify.barplot(sizes=pandas_table_top20['pct_total'], label=pandas_table_top20['word'], alpha=.8 )
+graph.lineplot(x = 'rank', y = 'count', data = pandas_table, ax = axis[0][0])
+graph.barplot(x = 'count', y = 'word', data = pandas_table_top20, ax = axis[0][1])
+graph.barplot(x = spacy_tokens_before.keys(), y = spacy_tokens_before.values(), ax = axis[1][0])
+graph.barplot(x = spacy_tokens_after.keys(), y = spacy_tokens_after.values(), ax = axis[1][1])
+graph.barplot
 pyplot.show()
