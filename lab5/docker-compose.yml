@@ -1,0 +1,15 @@
+services:
+  pyspark_image:
+    build:
+      dockerfile: ./Dockerfile
+    container_name: pyspark_container
+    ports:
+      - 4040:80
+    volumes:
+      - ./:/home/spark
+    networks:
+      - app-network
+  #restart: unless-stopped 
+networks:
+  app-network:
+    driver: bridge
